@@ -182,6 +182,9 @@ class GdbResponse:
             self.event = output
             self.data = None
 
+    def __str__(self):
+        return "GdbResponse(event='%s', data=%r)" % (self.event, self.data)
+
 class GdbCommand:
     def __init__(self, *args):
         self.cmd = ' '.join(args)
