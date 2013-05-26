@@ -14,6 +14,10 @@ import ast
 import optparse
 import source
 
+
+COLOR_CUR_POS = gtk.gdk.Color(0xaaaa, 0xaaaa, 0xffff)
+COLOR_BREAKPOINT = gtk.gdk.Color(0xffff, 0xaaaa, 0xaaaa)
+
 def patch_key_event(event, keyname):
     keyval = int(gtk.gdk.keyval_from_name(keyname))
     keymap = gtk.gdk.keymap_get_default()
@@ -36,9 +40,12 @@ class DisasmView(gtksourceview2.View):
         self.modify_font(pango.FontDescription("monospace"))
         self.set_editable(False)
         self.set_highlight_current_line(True)
+        self.set_mark_category_background('position', COLOR_CUR_POS)
+        self.set_mark_category_background('breakpoint', COLOR_BREAKPOINT)
 
         self.gdb = None
         self.addr2line = {}
+        self.pos = None
 
     def set_gdb(self, gdb):
         self.gdb = gdb
@@ -67,9 +74,16 @@ class DisasmView(gtksourceview2.View):
         self.set_buffer(self.buf)
 
     def set_cur_addr(self, addr):
+        if self.pos:
+            self.buf.delete_mark(self.pos)
+
         if addr not in self.addr2line:
             return
-        self.buf.place_cursor(self.buf.get_iter_at_line(self.addr2line[addr]))
+
+        it = self.buf.get_iter_at_line(self.addr2line[addr])
+        self.pos = self.buf.create_source_mark('pos', 'position', it)
+        self.scroll_mark_onscreen(self.pos)
+        self.buf.place_cursor(it)
 
 class SourceView(gtksourceview2.View):
     __gsignals__ = {
@@ -89,10 +103,8 @@ class SourceView(gtksourceview2.View):
         self.breakpoints = {}
         self.pos = None
         self.set_position(None)
-        c = gtk.gdk.Color(0xaaaa, 0xaaaa, 0xffff)
-        self.set_mark_category_background('position', c)
-        c = gtk.gdk.Color(0xffff, 0xaaaa, 0xaaaa)
-        self.set_mark_category_background('breakpoint', c)
+        self.set_mark_category_background('position', COLOR_CUR_POS)
+        self.set_mark_category_background('breakpoint', COLOR_BREAKPOINT)
         self.langman = gtksourceview2.LanguageManager()
 
     def patch_key_event(self, event):
