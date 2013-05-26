@@ -12,6 +12,8 @@ import sys
 import re
 import ast
 import optparse
+import time
+import errno
 import source
 
 
@@ -277,6 +279,8 @@ class GdbCommand:
         self.cmd = ' '.join(args)
         self.handle_ok = None
         self.handle_error = None
+        self.returned = False
+        self.result = None
 
 class GdbDispatcher:
     def __init__(self):
@@ -327,6 +331,8 @@ class GdbDispatcher:
                     self.pending.handle_error(response.data['msg'])
             elif self.pending.handle_ok:
                 self.pending.handle_ok(response.event, response.data)
+            else:
+                self.pending.result = (response.event, response.data)
         elif self.handle_event:
             self.handle_event(response.event, response.data)
         if self.pending and self.pending.prompted and self.pending.returned:
@@ -344,6 +350,27 @@ class GdbDispatcher:
         self.gdb.stdin.write(self.pending.cmd)
         self.gdb.stdin.write('\n')
         print '>>>', self.pending.cmd
+
+    def sync_cmd(self, command):
+        "Execute command synchronously, to avoid callback spaghetti."
+        while self.pending:
+            try:
+                self.__read_gdb(self.gdb.stdout, condition=None)
+            except IOError, e:
+                if e.errno != errno.EAGAIN:
+                    raise
+                time.sleep(0.001)
+        cmd = GdbCommand(command)
+        self.queue(cmd)
+        while not cmd.returned:
+            try:
+                self.__read_gdb(self.gdb.stdout, condition=None)
+            except IOError, e:
+                if e.errno != errno.EAGAIN:
+                    raise
+                time.sleep(0.001)
+        return cmd.result
+
 
 def parse_breakpoints(data):
     print data
