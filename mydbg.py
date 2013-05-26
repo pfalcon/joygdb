@@ -336,6 +336,8 @@ class MyDebugger:
         self.window.set_default_size(640, 480)
 
         box = gtk.VBox(False, 0)
+        splitter = gtk.VPaned()
+        box.pack_start(splitter, True, True, 2)
 
         scroll = gtk.ScrolledWindow()
         scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -344,7 +346,14 @@ class MyDebugger:
         self.view.connect('file-changed', self.__file_changed)
         self.view.connect('key_press_event', self.key_pressed)
         scroll.add(self.view)
-        box.pack_start(scroll, True, True, 2)
+        splitter.pack1(scroll, resize=True, shrink=True)
+
+        scroll = gtk.ScrolledWindow()
+        scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        self.disasm_view = DisasmView()
+        self.disasm_view.set_gdb(self)
+        scroll.add(self.disasm_view)
+        splitter.pack2(scroll, resize=True, shrink=True)
 
         self.statusbar = gtk.Statusbar()
         self.statusbar.set_spacing(2)
@@ -476,6 +485,7 @@ class MyDebugger:
         self.first_breakpoint = True
         self.view.set_position(None)
         self.place_breakpoint('main')
+        self.disasm_view.load_disasm('main')
 
     def __breakpoint_set(self, event, data):
         id = data['bkpt']['number']
@@ -515,6 +525,7 @@ class MyDebugger:
             else:
                 line = int(data['frame']['line'])-1
                 self.view.set_position((path, line))
+                self.disasm_view.set_cur_addr(data['frame']['addr'])
         elif event == '*running':
             self.status = MyDebugger.RUNNING
             self.__update_prog_status()
