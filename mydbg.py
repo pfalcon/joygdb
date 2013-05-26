@@ -398,6 +398,7 @@ class MyDebugger:
         scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self.disasm_view = DisasmView()
         self.disasm_view.set_gdb(self)
+        self.disasm_view.connect('key_press_event', self.key_pressed)
         scroll.add(self.disasm_view)
         splitter.pack2(scroll, resize=True, shrink=True)
 
@@ -442,9 +443,15 @@ class MyDebugger:
         elif key == 'r':
             self.run()
         elif key == 'n':
-            self.cmd('-exec-next')
+            if widget is self.disasm_view:
+                self.cmd('-exec-next-instruction')
+            else:
+                self.cmd('-exec-next')
         elif key == 's':
-            self.cmd('-exec-step')
+            if widget is self.disasm_view:
+                self.cmd('-exec-step-instruction')
+            else:
+                self.cmd('-exec-step')
         elif key == 'f':
             self.cmd('-exec-finish')
         elif key == 'space':
