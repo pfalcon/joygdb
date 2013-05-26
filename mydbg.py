@@ -33,6 +33,10 @@ def set_non_blocking(file):
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
 class DisasmView(gtksourceview2.View):
+    __gsignals__ = {
+        'key-press-event': 'override',
+    }
+
     def __init__(self, *args, **kwargs):
         gtksourceview2.View.__init__(self, *args, **kwargs)
         self.set_wrap_mode(gtk.WRAP_WORD)
@@ -44,18 +48,35 @@ class DisasmView(gtksourceview2.View):
         self.set_mark_category_background('breakpoint', COLOR_BREAKPOINT)
 
         self.gdb = None
-        self.addr2line = {}
         self.pos = None
+        self.addr2line = {}
+        # Address of first asm inst in view
+        self.start_addr = None
+        # Address of last asm inst in view
+        self.end_addr = None
 
     def set_gdb(self, gdb):
         self.gdb = gdb
 
     def load_disasm(self, addr):
-        self.gdb.cmd('-data-disassemble -s %s -e "%s + 0x28" -- 0' % (addr, addr), ok=self.disasm_callback)
+        self.gdb.cmd('-data-disassemble -s %s -e "%s + 0x08" -- 0' % (addr, addr), ok=self.disasm_callback)
+
+    def disasm_next(self, addr):
+        def process(event, data):
+            r = data['asm_insns'][1]
+            self.end_addr = r['address']
+            inst = r['address'][2:] + "  " + r['inst']
+            it = self.buf.get_end_iter()
+            self.addr2line[r['address']] = it.get_line() + 1
+            self.buf.insert(it, '\n' + inst)
+            self.scroll_to_mark(self.buf.get_insert(), 0)
+        self.gdb.cmd('-data-disassemble -s %s -e "%s + 0x09" -- 0' % (addr, addr), ok=process)
 
     def disasm_callback(self, event, data):
         print "load_disasm"
         self.addr2line = {}
+        self.start_addr = data['asm_insns'][0]['address']
+        self.end_addr = data['asm_insns'][-1]['address']
         asm = []
         line = 0
         for r in data['asm_insns']:
@@ -84,6 +105,15 @@ class DisasmView(gtksourceview2.View):
         self.pos = self.buf.create_source_mark('pos', 'position', it)
         self.scroll_mark_onscreen(self.pos)
         self.buf.place_cursor(it)
+
+    def do_key_press_event(self, event):
+        key = gtk.gdk.keyval_name(event.keyval)
+        cur_line = self.buf.get_iter_at_mark(self.buf.get_insert()).get_line()
+        if key == 'Down' and cur_line == self.buf.get_line_count() - 1:
+            print "Load up more asm"
+            self.disasm_next(self.end_addr)
+        return gtksourceview2.View.do_key_press_event(self, event)
+
 
 class SourceView(gtksourceview2.View):
     __gsignals__ = {
@@ -139,6 +169,7 @@ class SourceView(gtksourceview2.View):
         return gtksourceview2.View.do_key_release_event(self, event)
 
     def get_buffer(self, path=None):
+        print "get_buffer(%s)" % path
         if path is None:
             return gtksourceview2.View.get_buffer(self)
         try:
@@ -159,6 +190,7 @@ class SourceView(gtksourceview2.View):
             self.pos = None
 
     def set_position(self, pos):
+        print "set_position(%s)" % (pos,)
         self.hide_position()
         if pos is None:
             self.set_show_line_numbers(False)
@@ -277,12 +309,14 @@ class GdbDispatcher:
     def __read_gdb(self, gdbout, condition):
         output = gdbout.readline()
         if output:
+            print "<<< [raw] ",
             sys.stdout.write(output)
             self.__parse_response(output)
         return True
 
     def __parse_response(self, output):
         response = GdbResponse(output)
+        print "<<< [parsed]", response
         if response.event == '(':
             if self.pending:
                 self.pending.prompted = True
@@ -471,6 +505,7 @@ class MyDebugger:
         self.cmd('-file-exec-and-symbols', path, ok=self.__loaded)
 
     def place_breakpoint(self, where):
+        print "place_breakpoint(%s)" % where
         self.cmd('-break-insert', where, ok=self.__breakpoint_set)
 
     def delete_breakpoint(self, id):
