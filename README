@@ -1,1 +1,27 @@
-GTK+ interface to gdb.
+This project is attempt to recover lost joy of debugging.
+
+Few ideas of joyful debugging:
+
+1. CPU executes Assembly. If you can debug without assembly, you
+probably can get along without debugger altogether, with just
+using logging and diagnostic output (which are important part of
+any program).
+
+2. You should always see what you're debugging, without need
+to execute jerky commands and stuff. Per p.1, that means seeing
+all of: source, assembly, and registers (well, source is optional,
+because it's not always present).
+
+3. Executing trivial commands like stepping in/thru should be again
+not a jerky commands, but a single keypress.
+
+4. Everyone has different requirements and habbits, so debugger
+should be be ultra-hackable (like, you adjust it for yourself in
+5 minutes). That means no funky languages like "Cee" and
+"Cee-Cross-Cross".
+
+That's it, and this app tries to implement these ideas. It uses gdb
+underneath to support multitude of targets. Written in Python.
+
+This project is based on previous prototype (?) by
+https://github.com/nailgun/mydbg
