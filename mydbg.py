@@ -51,6 +51,7 @@ class DisasmView(gtksourceview2.View):
 
         self.gdb = None
         self.pos = None
+        self.func = None
         self.addr2line = {}
         # Address of first asm inst in view
         self.start_addr = None
@@ -60,8 +61,14 @@ class DisasmView(gtksourceview2.View):
     def set_gdb(self, gdb):
         self.gdb = gdb
 
-    def load_disasm(self, addr):
-        self.gdb.cmd('-data-disassemble -s %s -e "%s + 0x08" -- 0' % (addr, addr), ok=self.disasm_callback)
+    def disasm_func(self, func, addr=None, cb=None, cbdata=None):
+        "Need to pass in addr because gdb dumps invalid func names in disasm which itself cannot later parse"
+        self.func = func
+        self.load_disasm(addr or func, cb, cbdata)
+
+    def load_disasm(self, addr, cb=None, cbdata=None):
+        event, data = self.gdb.gdb.sync_cmd('-data-disassemble -s "%s" -e "%s + 0x14" -- 0' % (addr, addr))
+        self.disasm_callback(event, data)
 
     def disasm_next(self, addr):
         def process(event, data):
@@ -75,7 +82,6 @@ class DisasmView(gtksourceview2.View):
         self.gdb.cmd('-data-disassemble -s %s -e "%s + 0x09" -- 0' % (addr, addr), ok=process)
 
     def disasm_callback(self, event, data):
-        print "load_disasm"
         self.addr2line = {}
         self.start_addr = data['asm_insns'][0]['address']
         self.end_addr = data['asm_insns'][-1]['address']
@@ -96,11 +102,20 @@ class DisasmView(gtksourceview2.View):
         self.buf.place_cursor(self.buf.get_start_iter())
         self.set_buffer(self.buf)
 
-    def set_cur_addr(self, addr):
+    def set_position(self, frame):
         if self.pos:
             self.buf.delete_mark(self.pos)
 
+        addr = frame['addr']
+
+        print frame['func'], self.func
+        if frame['func'] != self.func:
+            print "Loading disasm for new func:", frame['func']
+            self.disasm_func(frame['func'], addr)
+
         if addr not in self.addr2line:
+            print "Addr %s not found in Disasm view (Not Implemented)" % addr
+            print self.addr2line
             return
 
         it = self.buf.get_iter_at_line(self.addr2line[addr])
@@ -566,7 +581,7 @@ class MyDebugger:
         self.first_breakpoint = True
         self.view.set_position(None)
         self.place_breakpoint('main')
-        self.disasm_view.load_disasm('main')
+        self.disasm_view.disasm_func('main')
 
     def __breakpoint_set(self, event, data):
         id = data['bkpt']['number']
@@ -606,7 +621,7 @@ class MyDebugger:
             else:
                 line = int(data['frame']['line'])-1
                 self.view.set_position((path, line))
-                self.disasm_view.set_cur_addr(data['frame']['addr'])
+            self.disasm_view.set_position(data['frame'])
         elif event == '*running':
             self.status = MyDebugger.RUNNING
             self.__update_prog_status()
