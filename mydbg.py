@@ -28,6 +28,49 @@ def set_non_blocking(file):
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
+class DisasmView(gtksourceview2.View):
+    def __init__(self, *args, **kwargs):
+        gtksourceview2.View.__init__(self, *args, **kwargs)
+        self.set_wrap_mode(gtk.WRAP_WORD)
+        #self.set_show_line_numbers(True)
+        self.modify_font(pango.FontDescription("monospace"))
+        self.set_editable(False)
+        self.set_highlight_current_line(True)
+
+        self.gdb = None
+        self.addr2line = {}
+
+    def set_gdb(self, gdb):
+        self.gdb = gdb
+
+    def load_disasm(self, addr):
+        self.gdb.cmd('-data-disassemble -s %s -e "%s + 0x28" -- 0' % (addr, addr), ok=self.disasm_callback)
+
+    def disasm_callback(self, event, data):
+        print "load_disasm"
+        self.addr2line = {}
+        asm = []
+        line = 0
+        for r in data['asm_insns']:
+            if r.get('offset') == '0':
+                asm.append(r['func-name'] + ':')
+                line += 1
+            asm.append(r['address'][2:] + "  " + r['inst'])
+            self.addr2line[r['address']] = line
+            line += 1
+        self.buf = source.Buffer()
+        self.buf.set_text('\n'.join(asm))
+        # TODO: Implement syntax highliting, there's no 'asm' support
+        #lang = gtksourceview2.LanguageManager().get_language('asm')
+        #buf.set_language(lang)
+        self.buf.place_cursor(self.buf.get_start_iter())
+        self.set_buffer(self.buf)
+
+    def set_cur_addr(self, addr):
+        if addr not in self.addr2line:
+            return
+        self.buf.place_cursor(self.buf.get_iter_at_line(self.addr2line[addr]))
+
 class SourceView(gtksourceview2.View):
     __gsignals__ = {
         'key-press-event': 'override',
