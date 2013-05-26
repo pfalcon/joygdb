@@ -122,13 +122,19 @@ class DisasmView(gtksourceview2.View):
         self.pos = self.buf.create_source_mark('pos', 'position', it)
         self.scroll_mark_onscreen(self.pos)
         self.buf.place_cursor(it)
+        self.load_next_ondemand()
+
+    def load_next_ondemand(self):
+        cur_line = self.buf.get_iter_at_mark(self.buf.get_insert()).get_line()
+        if cur_line == self.buf.get_line_count() - 1:
+            print "Load up more disasm"
+            self.disasm_next(self.end_addr)
 
     def do_key_press_event(self, event):
         key = gtk.gdk.keyval_name(event.keyval)
         cur_line = self.buf.get_iter_at_mark(self.buf.get_insert()).get_line()
-        if key == 'Down' and cur_line == self.buf.get_line_count() - 1:
-            print "Load up more asm"
-            self.disasm_next(self.end_addr)
+        if key == 'Down':
+            self.load_next_ondemand()
         return gtksourceview2.View.do_key_press_event(self, event)
 
 
