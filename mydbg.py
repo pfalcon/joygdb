@@ -138,6 +138,14 @@ class DisasmView(gtksourceview2.View):
         return gtksourceview2.View.do_key_press_event(self, event)
 
 
+class RegView(gtksourceview2.View):
+
+    def __init__(self, *args, **kwargs):
+        gtksourceview2.View.__init__(self, *args, **kwargs)
+        self.modify_font(pango.FontDescription("monospace"))
+        self.set_editable(False)
+
+
 class SourceView(gtksourceview2.View):
     __gsignals__ = {
         'key-press-event': 'override',
@@ -442,13 +450,22 @@ class MyDebugger:
         scroll.add(self.view)
         splitter.pack1(scroll, resize=True, shrink=True)
 
+        regsplitter = gtk.HPaned()
+        splitter.pack2(regsplitter, resize=True, shrink=True)
+
         scroll = gtk.ScrolledWindow()
         scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self.disasm_view = DisasmView()
         self.disasm_view.set_gdb(self)
         self.disasm_view.connect('key_press_event', self.key_pressed)
         scroll.add(self.disasm_view)
-        splitter.pack2(scroll, resize=True, shrink=True)
+        regsplitter.pack1(scroll, resize=True, shrink=True)
+
+        scroll = gtk.ScrolledWindow()
+        scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        self.reg_view = RegView()
+        scroll.add(self.reg_view)
+        regsplitter.pack2(scroll, resize=True, shrink=True)
 
         self.statusbar = gtk.Statusbar()
         self.statusbar.set_spacing(2)
