@@ -23,5 +23,5 @@ should be be ultra-hackable (like, you adjust it for yourself in
 That's it, and this app tries to implement these ideas. It uses gdb
 underneath to support multitude of targets. Written in Python.
 
-This project is based on previous prototype (?) by
-https://github.com/nailgun/mydbg
+This project is based on previous work by Dmitry Bashkatov:
+https://github.com/nailgun/mydbg (released under MIT license).
