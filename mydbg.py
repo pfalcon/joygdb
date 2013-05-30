@@ -144,6 +144,24 @@ class RegView(gtksourceview2.View):
         gtksourceview2.View.__init__(self, *args, **kwargs)
         self.modify_font(pango.FontDescription("monospace"))
         self.set_editable(False)
+        self.regs = []
+        self.buf = source.Buffer()
+        self.set_buffer(self.buf)
+
+    def set_gdb(self, gdb):
+        self.gdb = gdb
+
+    def init(self):
+        event, data = self.gdb.gdb.sync_cmd('-data-list-register-names')
+        self.regs = data["register-names"]
+
+    def update_regs(self):
+        event, data = self.gdb.gdb.sync_cmd('-data-list-register-values r')
+        vals = data["register-values"]
+        text = ""
+        for v in vals[:]:
+            text += "%s\t%s\n" % (self.regs[int(v["number"])], v["value"])
+        self.buf.set_text(text)
 
 
 class SourceView(gtksourceview2.View):
@@ -464,6 +482,7 @@ class MyDebugger:
         scroll = gtk.ScrolledWindow()
         scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self.reg_view = RegView()
+        self.reg_view.set_gdb(self)
         scroll.add(self.reg_view)
         regsplitter.pack2(scroll, resize=True, shrink=True)
 
@@ -601,6 +620,7 @@ class MyDebugger:
     def __loaded(self, event, data):
         self.status = MyDebugger.TERMINATED
         self.__update_prog_status()
+        self.reg_view.init()
         self.first_breakpoint = True
         self.view.set_position(None)
         self.place_breakpoint('main')
@@ -645,6 +665,7 @@ class MyDebugger:
                 line = int(data['frame']['line'])-1
                 self.view.set_position((path, line))
             self.disasm_view.set_position(data['frame'])
+            self.reg_view.update_regs()
         elif event == '*running':
             self.status = MyDebugger.RUNNING
             self.__update_prog_status()
