@@ -1,0 +1,18 @@
+Ordered based on rough priority.
+
+1. Add menu so users have an idea what command available on which keys.
+2. Add YAML-based session config, support multiple configs.
+3. Allow user to specify which registers and in which order to show.
+   Because gdb's default is sorted by numeric id, and that's pretty arbitrary.
+   Also, it has byte vs word vs dword registers repeated.
+4. Highlight updated registers on execution stop.
+5. Allow to select disasm syntax flavor via config.
+6. Allow to override key bindings via session config.
+7, Scroll up (to lower addresses) in disasm pane.
+8. Allow to show arbitrary address (including symbols) in disasm pane.
+9. Show backtrace.
+10. Show memory.
+11. Edit registers.
+12. Edit memory.
+13. Execute arbitrary GDB command.
+14. Filter/show debugee stdout output (that's deep problem with GDB/MI).
